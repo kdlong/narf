@@ -1,6 +1,8 @@
 import ROOT
-#ROOT.gInterpreter.ProcessLine(".O3")
-ROOT.ROOT.EnableImplicitMT()
+ROOT.gInterpreter.ProcessLine(".O3")
+ROOT.ROOT.EnableImplicitMT(24)
+
+ROOT.gInterpreter.ProcessLine('#include "narf/histHelpers.cc"')
 
 import narf
 from datasets import datasets2016
@@ -36,9 +38,14 @@ def build_graph(df, dataset):
     hpt = df.Histo1D(("hpt", "", 35, 25., 60.), "Muon0_pt", "weight")
     heta = df.Histo1D(("heta", "", 48, -2.4, 2.4), "Muon0_eta", "weight")
 
-    #hpt.GetResult()
     results = [hpt, heta]
-    #results = [hpt]
+    if not dataset.is_data:
+        df = df.Define("Muon0_ptvarsUp", "Numba::calibratedPt(Muon_pt[0], Muon_eta[0], Muon_charge[0], true)")
+    #    #df = df.Define("Muon0_ptvarsDown", "Numba::calibratedPt(Muon_pt[0], Muon_eta[0], Muon_charge[0], false)")
+        df = df.Define("ptvarIndices", "indices(Muon0_ptvarsUp)")
+        hptvar = df.Histo2D(("hptvarUp", "", 35, 25., 60., 288, -0.5, 287.5), "Muon0_pt", "ptvarIndices", "weight")
+    #    #hptvar = df.Histo2D(("hptvarDown", "", 35, 25., 60., 288, -0.5, 287.5), "Muon0_ptvarsDown", "ptvarIndices", "weight")
+        results.append(hptvar)
 
     return results, hweight
 

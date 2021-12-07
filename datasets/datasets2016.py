@@ -31,5 +31,5 @@ def buildXrdFileList(path, xrd):
 
 #data_files_ = buildXrdFileList("/store/cmst3/group/wmass/w-mass-13TeV/NanoAOD/SingleMuon/NanoV8Data/Run2016G_210302_203023/0000", "root://cmseos.cern.ch")[:10]
 #zmc_files_ = buildXrdFileList("/store/cmst3/group/wmass/w-mass-13TeV/NanoAOD/DYJetsToMuMu_M-50_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/MCPostVFPWeightFix/211114_184608/0000/", "root://cmseos.cern.ch")[:10]
-zmc_files_ = glob.glob("/data/shared/originalNANO/DYJetsToMuMu_postVFP/*/*.root")[:200]
-data_files_ = glob.glob("/data/shared/originalNANO/NanoV8Data_Mar2021/Run2016H/*")[:200]
+zmc_files_ = glob.glob("/scratch/shared/originalNANO/DYJetsToMuMu_postVFP/*/*.root")[:200]
+data_files_ = glob.glob("/scratch/shared/originalNANO/NanoV8Data_Mar2021/Run2016H/*")[:200]
