@@ -1,15 +1,20 @@
 import ROOT
 ROOT.gInterpreter.ProcessLine(".O3")
-ROOT.ROOT.EnableImplicitMT(24)
 
 ROOT.gInterpreter.ProcessLine('#include "narf/histHelpers.cc"')
 
 import narf
 from datasets import datasets2016
+import argparse
+import psutil
 
-#import gc
+parser = argparse.ArgumentParser()
+parser.add_argument("--test", action='store_true', help="Run on subset of files")
+args = parser.parse_args()
 
-datasets = datasets2016.allDatasets()
+ROOT.ROOT.EnableImplicitMT(psutil.cpu_count() if not args.test else 42)
+
+datasets = datasets2016.allDatasets(istest=args.test)
 #datasets = [zmc, data]
 #datasets = [zmc]
 
@@ -40,11 +45,11 @@ def build_graph(df, dataset):
 
     results = [hpt, heta]
     if not dataset.is_data:
-        df = df.Define("Muon0_ptvarsUp", "Numba::calibratedPt(Muon_pt[0], Muon_eta[0], Muon_charge[0], true)")
-    #    #df = df.Define("Muon0_ptvarsDown", "Numba::calibratedPt(Muon_pt[0], Muon_eta[0], Muon_charge[0], false)")
-        df = df.Define("ptvarIndices", "indices(Muon0_ptvarsUp)")
-        hptvar = df.Histo2D(("hptvarUp", "", 35, 25., 60., 288, -0.5, 287.5), "Muon0_pt", "ptvarIndices", "weight")
-    #    #hptvar = df.Histo2D(("hptvarDown", "", 35, 25., 60., 288, -0.5, 287.5), "Muon0_ptvarsDown", "ptvarIndices", "weight")
+        df = df.Define("Muon0_ptvarsUp", "Numba::calibratedPtUpVar(Muon_pt[0], Muon_eta[0], Muon_charge[0])")
+        df = df.Define("Muon0_ptvarsDown", "Numba::calibratedPtDownVar(Muon_pt[0], Muon_eta[0], Muon_charge[0])")
+        df = df.Define("Muon0_ptvars", "concatRVecs<double, 288, 288>(Muon0_ptvarsUp, Muon0_ptvarsDown)")
+        df = df.Define("ptvarIndices", "indices(Muon0_ptvars)")
+        hptvar = df.Histo2D(("hptvar", "", 35, 25., 60., 288*2, -0.5, 288*2-0.5), "Muon0_ptvars", "ptvarIndices", "weight")
         results.append(hptvar)
 
     return results, hweight
