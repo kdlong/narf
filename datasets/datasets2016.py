@@ -27,13 +27,13 @@ def allDatasets(istest=False):
     wplus = narf.Dataset(name = "WplusmunuPostVFP",
                     filepaths = wplus_files,
                     is_data = False,
-                    xsec = 1990.5,
+                    xsec = 11572.19,
                     )
 
     wminus = narf.Dataset(name = "WminusmunuPostVFP",
                     filepaths = wminus_files,
                     is_data = False,
-                    xsec = 1990.5,
+                    xsec = 8562.66,
                     )
 
     return [data, zmc, wplus, wminus]
