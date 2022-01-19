@@ -103,6 +103,7 @@ def build_graph(df, dataset):
         df = df.Define("mVgen", "genV.mass()")
         df = df.Define("minnloQCDWeightsByHelicity", "Numba::qcdUncByHelicity(ptVgen, yVgen, csSineCosThetaPhi[0], csSineCosThetaPhi[1], csSineCosThetaPhi[2], csSineCosThetaPhi[3])*weight")
         df = df.DefinePerSample("helicityScaleIndex", "std::array<int, 54> res; std::iota(res.begin(), res.end(), 0); return res;")
+        df = df.DefinePerSample("scaleIndex", "std::array<int, 9> res; std::iota(res.begin(), res.end(), 0); return res;")
 
         if args.useBoost:
             axis_ptV = hist.axis.Regular(50, 0., 50., name = "ptV")
@@ -111,8 +112,10 @@ def build_graph(df, dataset):
             axis_mass = hist.axis.Regular(20, 71, 1.6, name = "mass")
             axis_weight = hist.axis.Regular(10, 0.5, 1.5, name = "weights")
             axis_weightIndices = hist.axis.Regular(54, -0.5, 53.5, name = "weightIndices")
+            axis_scaleWeightIndices = hist.axis.Regular(9, -0.5, 8.5, name = "scaleWeightIndices")
             hHelicityWeights = df.HistoBoost("hHelicityWeights", [axis_weight], ["minnloQCDWeightsByHelicity"])
             hPtEtaWeights = df.HistoBoost("hPtEtaHelcity", [axis_eta, axis_pt, axis_weightIndices], ["goodMuons_Eta0", "goodMuons_Pt0", "helicityScaleIndex", "minnloQCDWeightsByHelicity"])
+            hPtEtaScaleWeights = df.HistoBoost("hPtEtaScaleWeight", [axis_eta, axis_pt, axis_scaleWeightIndices], ["goodMuons_Eta0", "goodMuons_Pt0", "scaleIndex", "LHEScaleWeight"])
         else:
             hGenVPt = df.Histo1D(("hgenVpt", "", 29, 26, 55), "ptVgen", "weight")
             hGenVtheta = df.Histo1D(("hgenVtheta", "", 10, -1.6, 1.6), "thetaVgen", "weight")
@@ -121,7 +124,7 @@ def build_graph(df, dataset):
             hPtEtaWeights = df.Histo3D(("hPtEtaHelcity", "", 48, -2.4, 2.4, 29, 26, 55, 54, -0.5, 53.5), "goodMuons_Eta0", "goodMuons_Pt0", "helicityScaleIndex", "minnloQCDWeightsByHelicity")
         
         #df.Snapshot("Events", "dump.root", ["ptVgen", "yVgen", "minnloQCDWeightsByHelicity", "goodMuons_Eta0", "goodMuons_Pt0", "helicityScaleIndex"])
-        results.extend([hHelicityWeights, hPtEtaWeights])
+        results.extend([hHelicityWeights, hPtEtaScaleWeights, hPtEtaWeights])
 
     if not dataset.is_data:
 
