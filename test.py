@@ -3,7 +3,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--nThreads", type=int, help="number of threads", default=None)
 parser.add_argument("--useBoost", action='store_true', help="user boost histograms")
-parser.add_argument("--test", action='store_true', help="Only run over one file per dataset")
+parser.add_argument("-n", "--maxfiles", type=int, default=-1, help="Max number of files to process per dataset")
 args = parser.parse_args()
 
 import ROOT
@@ -28,7 +28,7 @@ import numba
 from narf import numbaIncludes
 ROOT.gInterpreter.Declare('#include "narf/include/csframe.h"')
 
-datasets = datasets2016.allDatasets(args.test)[2:3]
+datasets = datasets2016.allDatasets(args.maxfiles)[2:3]
 
 boost_hist_default = ROOT.boost.histogram.use_default
 boost_hist_options_none = ROOT.boost.histogram.axis.option.none_t
@@ -106,27 +106,23 @@ def build_graph(df, dataset):
         df = df.DefinePerSample("scaleIndex", "std::array<int, 9> res; std::iota(res.begin(), res.end(), 0); return res;")
 
         if args.useBoost:
-            axis_ptV = hist.axis.Regular(50, 0., 50., name = "ptV")
-            axis_phi = hist.axis.Regular(10, 0, 7, name = "phi")
-            axis_theta = hist.axis.Regular(10, -1.6, 1.6, name = "theta")
-            axis_mass = hist.axis.Regular(20, 71, 1.6, name = "mass")
-            axis_weight = hist.axis.Regular(10, 0.5, 1.5, name = "weights")
-            axis_weightIndices = hist.axis.Regular(54, -0.5, 53.5, name = "weightIndices")
-            axis_scaleWeightIndices = hist.axis.Regular(9, -0.5, 8.5, name = "scaleWeightIndices")
-            hHelicityWeights = df.HistoBoost("hHelicityWeights", [axis_weight], ["minnloQCDWeightsByHelicity"])
-            hPtEtaWeights = df.HistoBoost("hPtEtaHelcity", [axis_eta, axis_pt, axis_weightIndices], ["goodMuons_Eta0", "goodMuons_Pt0", "helicityScaleIndex", "minnloQCDWeightsByHelicity"])
-            hPtEtaScaleWeights = df.HistoBoost("hPtEtaScaleWeight", [axis_eta, axis_pt, axis_scaleWeightIndices], ["goodMuons_Eta0", "goodMuons_Pt0", "scaleIndex", "LHEScaleWeight"])
+            axis_weights = hist.axis.Regular(100, 0.5, 1.5, name = "weights")
+            df = df.Define("helicityWeights", "Eigen::TensorFixedSize<double, Eigen::Sizes<54>> res; auto w = minnloQCDWeightsByHelicity; std::copy(std::begin(w), std::end(w), res.data()); return res;")
+            hPtEtaWeights = df.HistoBoost("hPtEtaHelcity", [axis_eta, axis_pt], ["goodMuons_Eta0", "goodMuons_Pt0", "helicityWeights"], var_axis_names=["systIdx"])
+            df = df.Define("scaleWeights", "Eigen::TensorFixedSize<double, Eigen::Sizes<9>> res; auto w = weight*LHEScaleWeight; std::copy(std::begin(w), std::end(w), res.data()); return res;")
+            hPtEtaScaleWeights = df.HistoBoost("hPtEtaScaleWeight", [axis_eta, axis_pt,], ["goodMuons_Eta0", "goodMuons_Pt0", "scaleWeights"], var_axis_names=["systIdx"])
+            hWeights = df.HistoBoost("hHelWeights", [axis_weights], ["minnloQCDWeightsByHelicity"])
+            hWeights2D = df.HistoBoost("hHelWeights2D", [axis_weights], ["weight", "helicityWeights"])
         else:
             hGenVPt = df.Histo1D(("hgenVpt", "", 29, 26, 55), "ptVgen", "weight")
             hGenVtheta = df.Histo1D(("hgenVtheta", "", 10, -1.6, 1.6), "thetaVgen", "weight")
             hGenVmass = df.Histo1D(("hgenVmass", "", 20, 71,101), "mVgen", "weight")
-            hHelicityWeights = df.Histo1D(("hHelicityWeights", "", 50, 0.5,1.5), "minnloQCDWeightsByHelicity")
             hPtEtaWeights = df.Histo3D(("hPtEtaHelcity", "", 48, -2.4, 2.4, 29, 26, 55, 54, -0.5, 53.5), "goodMuons_Eta0", "goodMuons_Pt0", "helicityScaleIndex", "minnloQCDWeightsByHelicity")
         
         #df.Snapshot("Events", "dump.root", ["ptVgen", "yVgen", "minnloQCDWeightsByHelicity", "goodMuons_Eta0", "goodMuons_Pt0", "helicityScaleIndex"])
-        results.extend([hHelicityWeights, hPtEtaScaleWeights, hPtEtaWeights])
+        results.extend([hPtEtaScaleWeights, hPtEtaWeights, hWeights, hWeights2D])
 
-    if not dataset.is_data:
+    #if not dataset.is_data:
 
         #df = df.Define("pdfweight", "weight*LHEPdfWeight")
 
@@ -136,28 +132,6 @@ def build_graph(df, dataset):
         #results.append(hptetachargepdf)
 
         #df = df.DefinePerSample("pdfidx", "std::array<int, 103> res; std::iota(res.begin(), res.end(), 0); return res;")
-
-
-        for i in range(10):
-
-            wname = f"pdfweight_{i}"
-
-            #df = df.Define(wname, "weight*LHEPdfWeight")
-
-
-            df = df.Define(wname, "Eigen::TensorFixedSize<double, Eigen::Sizes<103>> res; auto w = weight*LHEPdfWeight; std::copy(std::begin(w), std::end(w), res.data()); return res;")
-
-            if args.useBoost:
-                #hptetachargepdf = df.HistoBoost(f"hptetachargepdf_{i}", [axis_pt, axis_eta, axis_charge, axis_pdf_idx], ["goodMuons_Pt0", "goodMuons_Eta0", "goodMuons_Charge0", "pdfidx", wname])
-                #hptetachargepdf = df.HistoBoost(f"hptetachargepdf_{i}", [axis_pt, axis_eta, axis_charge, axis_pdf_idx], ["goodMuons_Pt0", "goodMuons_Eta0", "goodMuons_Charge0", "pdfidx", wname], storage=hist.storage.Double())
-                #hptetachargepdf = df.HistoBoostArr(f"hptetachargepdf_{i}", [axis_pt, axis_eta, axis_charge], ["goodMuons_Pt0", "goodMuons_Eta0", "goodMuons_Charge0", wname])
-                hptetachargepdf = df.HistoBoost(f"hptetachargepdf_{i}", [axis_pt, axis_eta, axis_charge], ["goodMuons_Pt0", "goodMuons_Eta0", "goodMuons_Charge0", wname])
-                #hptetachargepdf = df.HistoBoost(f"hptetachargepdf_{i}", [axis_pt, axis_eta, axis_charge], ["goodMuons_Pt0", "goodMuons_Eta0", "goodMuons_Charge0", wname], storage=hist.storage.Double())
-            else:
-                #hptetachargepdf = df.HistoND((f"hptetachargepdf_{i}", "", 4, [29, 48, 2, 103], [26., -2.4, -2., -0.5], [55., 2.4, 2., 102.5]), ["goodMuons_Pt0", "goodMuons_Eta0", "goodMuons_Charge0", "pdfidx", f"pdfweight_{i}"])
-                #hptetachargepdf = df.HistoNDWithBoost((f"hptetachargepdf_{i}", "", 4, [29, 48, 2, 103], [26., -2.4, -2., -0.5], [55., 2.4, 2., 102.5]), ["goodMuons_Pt0", "goodMuons_Eta0", "goodMuons_Charge0", "pdfidx", wname])
-                hptetachargepdf = df.HistoNDWithBoost((f"hptetachargepdf_{i}", "", 3, [29, 48, 2], [26., -2.4, -2.], [55., 2.4, 2.]), ["goodMuons_Pt0", "goodMuons_Eta0", "goodMuons_Charge0", wname])
-            results.append(hptetachargepdf)
 
     return results, weightsum
 

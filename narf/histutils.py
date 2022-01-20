@@ -231,14 +231,14 @@ def _histo_boost(df, name, axes, cols, storage = bh.storage.Weight(), force_atom
 
     return res
 
-def _convert_root_axis(axis):
+def _convert_root_axis(axis, name=""):
     is_regular = axis.GetXbins().fN == 0
 
     if is_regular:
         nbins = axis.GetNbins()
         xlow = axis.GetXmin()
         xhigh = axis.GetXmax()
-        return ROOT.boost.histogram.axis.regular[""](nbins, xlow, xhigh)
+        return ROOT.boost.histogram.axis.regular[""](nbins, xlow, xhigh, True, True, name)
     else:
         edges = [edge for edge in axis.GetXbins()]
         return ROOT.boost.histogram.axis.variable[""](edges)
@@ -263,19 +263,19 @@ def _convert_root_hist(hist):
 
     return boost_hist
 
-def _convert_root_axis_to_hist(axis):
+def _convert_root_axis_to_hist(axis, name=""):
     is_regular = axis.GetXbins().fN == 0
 
     if is_regular:
         nbins = axis.GetNbins()
         xlow = axis.GetXmin()
         xhigh = axis.GetXmax()
-        return hist.axis.Regular(nbins, xlow, xhigh)
+        return hist.axis.Regular(nbins, xlow, xhigh, name=name)
     else:
         edges = [edge for edge in axis.GetXbins()]
-        return hist.axis.Variable(edges)
+        return hist.axis.Variable(edges, name=name)
 
-def root_to_hist(root_hist):
+def root_to_hist(root_hist, axis_names):
     axes = []
     if isinstance(root_hist, ROOT.TH3):
         axes.append(root_hist.GetXaxis())
@@ -289,8 +289,12 @@ def root_to_hist(root_hist):
     elif isinstance(root_hist, ROOT.THnBase):
         for axis in root_hist.GetListOfAxes():
             axes.append(axis)
+    if not axis_names:
+        axis_names = [f"axis_{i}" for i in range(len(axes))]
+    elif len(axes) != len(axis_names):
+        raise ValueError(f"Number of names given ({len(names)}) does not match number of axes ({len(axes)})")
 
-    boost_axes = [_convert_root_axis_to_hist(axis) for axis in axes]
+    boost_axes = [_convert_root_axis_to_hist(axis, name) for axis, name in zip(axes, axis_names)]
     boost_hist = hist.Hist(*boost_axes, storage = bh.storage.Weight())
 
     vals = boost_hist.values(flow = True)
